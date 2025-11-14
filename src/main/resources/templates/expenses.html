@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Expenses List</title>
+    <link type="text/css" rel="stylesheet" href="/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" />
+</head>
+<body>
+
+    <div class="d-flex justify-content-between align-items-center my-3">
+        <div>
+            <h2>Accounting app</h2>
+        </div>
+    </div>
+
+    <h3>Expenses</h3>
+    <table class="table table-striped">
+        <!-- Total row -->
+        <tr class="table-secondary fw-bold">
+            <td>Total</td>
+            <td th:text="${totalExpenses}"></td>
+            <td colspan="6"></td>
+        </tr>
+
+        <tr>
+            <th>Title</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Account</th>
+            <th>Description</th>
+        </tr>
+        
+        <tr th:each="entry : ${entries}">
+            <td th:text="${entry.title}"></td>
+            <td th:text="${entry.amount}"></td>
+            <td th:text="${entry.formattedDateTime}"></td>
+            <td th:text="${entry.category}"></td>
+            <td th:text="${entry.account}"></td>
+            <td th:text="${entry.description}"></td>
+            <td>
+                <a th:href="@{'/editentry/' + ${entry.id}}" class="btn btn-primary" style="display:inline">Edit</a>
+            </td>
+            <td>
+                <a th:href="@{'/deleteexpense/' + ${entry.id}}" class="btn btn-danger"
+                    method="post" style="display:inline"
+                    onclick="return confirm('Are you sure you want to delete this entry?');">Delete</a>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

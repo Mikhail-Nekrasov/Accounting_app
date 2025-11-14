@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Entry</title>
+    <link type="text/css" rel="stylesheet" href="/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" />
+</head>
+<body class="bg-light">
+
+    <div class="container my-4">
+        <div class="card shadow-sm rounded-3">
+            <div class="card-body">
+                <h3 class="card-title mb-4" th:switch="${type?.name()}">
+                    <span th:case="'INCOME'">Add New Income</span>
+                    <span th:case="'EXPENSE'">Add New Expense</span>
+                    <span th:case="*">Add New Entry</span>
+                </h3>
+
+                <form th:action="@{/addentry}" th:object="${entry}" method="post">
+                    
+                    <!-- Title -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title</label>
+                        <input type="text" class="form-control" th:field="*{title}" required />
+                    </div>
+
+                    <!-- Type -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Type</label>
+                        <select class="form-select" th:field="*{type}" th:disabled="${type != null}" required>
+                            <option value="INCOME" th:selected="${entry.type?.name() == 'INCOME'}">INCOME</option>
+                            <option value="EXPENSE" th:selected="${entry.type?.name() == 'EXPENSE'}">EXPENSE</option>
+                        </select>
+
+                        <input type="hidden" th:if="${type != null}" th:field="*{type}" />
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Amount</label>
+                        <input type="number" step="0.01" class="form-control" th:field="*{amount}" required />
+                    </div>
+
+                    <!-- Date & Time -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Date & Time</label>
+                        <input type="datetime-local" class="form-control"
+                            name="dateTime"
+                            th:value="${entry.dateTime != null} ? ${#temporals.format(entry.dateTime, 'yyyy-MM-dd''T''HH:mm')}"
+                            required />
+                    </div>
+
+                    <!-- Category -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Category</label>
+                        <select class="form-select" th:field="*{category}" required>
+                            <option th:each="cat : ${categories}" 
+                                    th:value="${cat.category_id}" 
+                                    th:text="${cat.name}" 
+                                    th:selected="${cat.category_id == entry.category?.category_id}"></option>
+                        </select>
+                    </div>
+
+                    <!-- Account -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Account</label>
+                        <select class="form-select" th:field="*{account}" required>
+                            <option th:each="acc : ${accounts}" 
+                                    th:value="${acc.account_id}" 
+                                    th:text="${acc.name}" 
+                                    th:selected="${acc.account_id == entry.account?.account_id}"></option>
+                        </select>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Description</label>
+                        <textarea class="form-control" th:field="*{description}" rows="3"></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary px-4">Save</button>
+                        <a th:href="@{/entries}" class="btn btn-secondary px-4">Cancel</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

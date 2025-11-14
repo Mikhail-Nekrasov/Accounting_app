@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${pageTitle}">Entries</title>
+    <link type="text/css" rel="stylesheet" href="/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" />
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container px-1 py-4">
+
+    <div class="d-flex justify-content-between align-items-center my-3">
+        <div>
+            <h2>Accounting app</h2>
+
+            <div>
+                <!-- Navigation buttons -->
+        
+                <a th:if="${type} == null"
+                    th:href="@{/entries?type=EXPENSE}" class="btn btn-warning me-2">Expenses</a>
+                <a th:if="${type} == null"
+                    th:href="@{/entries?type=INCOME}" class="btn btn-success">Incomes</a>
+
+                <a th:if="${type?.name() == 'EXPENSE'}"
+                    th:href="@{/entries?type=INCOME}" class="btn btn-success me-2">Incomes</a>
+                <a th:if="${type?.name() == 'EXPENSE'}"
+                    th:href="@{/entries}" class="btn btn-secondary">All entries</a>
+
+                <a th:if="${type?.name() == 'INCOME'}"
+                    th:href="@{/entries?type=EXPENSE}" class="btn btn-warning me-2">Expenses</a>
+                <a th:if="${type?.name() == 'INCOME'}"
+                    th:href="@{/entries}" class="btn btn-secondary">All entries</a>
+            </div>
+        </div>
+    </div>
+
+    <h3 th:text="${pageTitle}"></h3>
+
+    <div th:if="${total != null}" class="alert fw-bold" th:switch="${type?.name()}">
+        
+        <!-- All entries -->
+        <span th:case="null" class="alert alert-primary d-flex justify-content-between align-items-center">
+            <span>Total: <span th:text="${total}"></span></span>
+            <a th:href="@{/addentry}" class="btn btn-info btn-sm">Add new entry</a>
+        </span>
+        
+        <!-- Incomes -->
+        <span th:case="'INCOME'" class="alert alert-success d-flex justify-content-between align-items-center">
+            <span>Total incomes: <span th:text="${total}"></span></span>
+            <a th:href="@{/addentry(type=INCOME)}" class="btn btn-info btn-sm">Add new income</a>
+        </span>
+        
+        <!-- Expenses -->
+        <span th:case="'EXPENSE'" class="alert alert-danger d-flex justify-content-between align-items-center">
+            <span>Total expenses: <span th:text="'-' + ${total}"></span></span>
+            <a th:href="@{/addentry(type=EXPENSE)}" class="btn btn-info btn-sm">Add new expense</a>
+        </span>
+
+    </div>
+
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th class="col-title">Title</th>
+            <th th:if="${type} == null">Type</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Account</th>
+            <th class="col-description">Description</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="entry : ${entries}">
+            <td class="col-title" th:text="${entry.title}"></td>
+            <td th:if="${type} == null" th:text="${entry.type}"></td>
+            <td th:text="${entry.amount}"></td>
+            <td th:text="${entry.formattedDateTime}"></td>
+            <td th:text="${entry.category}"></td>
+            <td th:text="${entry.account}"></td>
+            <td class="two-line" th:text="${entry.description}" onclick="this.classList.toggle('expanded')"></td>
+            <td>
+                <a th:if="${type} == null"
+                th:href="@{'/editentry/' + ${entry.id}}"
+                class="btn btn-primary btn-sm me-2">Edit</a>
+                <a th:if="${type} != null"
+                th:href="@{'/editentry/' + ${entry.id} + '?type=' + ${type}}"
+                class="btn btn-primary btn-sm me-2">Edit</a>
+
+                <a th:if="${type} == null"
+                th:href="@{'/deleteentry/' + ${entry.id}}"
+                class="btn btn-danger btn-sm"
+                onclick="return confirm('Are you sure you want to delete this entry?');">Delete</a>
+                <a th:if="${type} != null"
+                th:href="@{'/deleteentry/' + ${entry.id} + '?type=' + ${type}}"
+                class="btn btn-danger btn-sm"
+                onclick="return confirm('Are you sure you want to delete this entry?');">Delete</a>
+
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    </div>
+</body>
+</html>
