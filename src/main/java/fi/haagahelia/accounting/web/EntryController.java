@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -42,39 +45,57 @@ public class EntryController {
     public AccountRepository accountRepository;
 
     @GetMapping("/entries")
-    public String getEntries(@RequestParam(value = "type", required = false) EntryType type,
-                             Model model) {
-        List<Entry> entries;
-        BigDecimal total = BigDecimal.ZERO;
-        String pageTitle;
+    public String getEntries(
+            @RequestParam(value = "type", required = false) EntryType type,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "5") int size,
+            Model model) {
 
-        Sort sortByDateDesc = Sort.by(Sort.Direction.DESC, "dateTime");
+        // Сортировка по дате (сначала новые)
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "dateTime"));
 
-        if (type == null) {                                     // added later, not sure if I want to keep it
-            entries = entryRepository.findAll(sortByDateDesc);                //
-            pageTitle = "All entries";                          //
-            BigDecimal incomeSum = entries.stream()             //
-                .filter(e -> e.getType() == EntryType.INCOME)   //
-                .map(Entry::getAmount)              
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal expenseSum = entries.stream()
-                .filter(e -> e.getType() == EntryType.EXPENSE)
-                .map(Entry::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);      //
-            total = incomeSum.subtract(expenseSum);             //
+        Page<Entry> entryPage;
 
+        if (type == null) {
+            entryPage = entryRepository.findAll(pageable);
         } else {
-            entries = entryRepository.findByType(type, sortByDateDesc);
-            pageTitle = (type == EntryType.EXPENSE ? "Expenses" : "Incomes");
-            total = entries.stream()
+            entryPage = entryRepository.findByType(type, pageable);
+        }
+
+        List<Entry> entries = entryPage.getContent(); // только текущая страница
+
+        // Calculating Total
+        BigDecimal total;
+        if (type == null) {
+            List<Entry> allEntries = entryRepository.findAll();
+            BigDecimal incomeSum = allEntries.stream()
+                    .filter(e -> e.getType() == EntryType.INCOME)
+                    .map(Entry::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal expenseSum = allEntries.stream()
+                    .filter(e -> e.getType() == EntryType.EXPENSE)
+                    .map(Entry::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            total = incomeSum.subtract(expenseSum);
+        } else {
+            List<Entry> allEntriesByType = entryRepository.findByType(type);
+            total = allEntriesByType.stream()
                     .map(Entry::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-        
+
+        // Page Title
+        String pageTitle = (type == null)
+                ? "All entries"
+                : (type == EntryType.EXPENSE ? "Expenses" : "Incomes");
+
+        // Data for a template
         model.addAttribute("entries", entries);
         model.addAttribute("pageTitle", pageTitle);
         model.addAttribute("type", type);
         model.addAttribute("total", total);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", entryPage.getTotalPages());
 
         return "entries";
     }
