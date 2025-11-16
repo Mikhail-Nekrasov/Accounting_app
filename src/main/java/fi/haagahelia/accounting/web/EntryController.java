@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,7 +19,7 @@ import fi.haagahelia.accounting.model.EntryType;
 import fi.haagahelia.accounting.repository.AccountRepository;
 import fi.haagahelia.accounting.repository.CategoryRepository;
 import fi.haagahelia.accounting.repository.EntryRepository;
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -44,11 +45,13 @@ public class EntryController {
     public String getEntries(@RequestParam(value = "type", required = false) EntryType type,
                              Model model) {
         List<Entry> entries;
-        BigDecimal total = null;
+        BigDecimal total = BigDecimal.ZERO;
         String pageTitle;
 
+        Sort sortByDateDesc = Sort.by(Sort.Direction.DESC, "dateTime");
+
         if (type == null) {                                     // added later, not sure if I want to keep it
-            entries = entryRepository.findAll();                //
+            entries = entryRepository.findAll(sortByDateDesc);                //
             pageTitle = "All entries";                          //
             BigDecimal incomeSum = entries.stream()             //
                 .filter(e -> e.getType() == EntryType.INCOME)   //
@@ -61,7 +64,7 @@ public class EntryController {
             total = incomeSum.subtract(expenseSum);             //
 
         } else {
-            entries = entryRepository.findByType(type);
+            entries = entryRepository.findByType(type, sortByDateDesc);
             pageTitle = (type == EntryType.EXPENSE ? "Expenses" : "Incomes");
             total = entries.stream()
                     .map(Entry::getAmount)
@@ -87,23 +90,32 @@ public class EntryController {
         return "redirect:/entries";
     }
 
-    @RequestMapping("/editentry/{id}")
-    public String editEntry(@PathVariable("id") Long id, Model model,
-                            @RequestParam(value = "type", required = false) EntryType type,
-                            HttpServletRequest request) {
+    @GetMapping("/editentry/{id}")
+    public String editEntry(@PathVariable("id") Long id,
+                            Model model,
+                            //HttpServletRequest request,
+                            HttpSession session) {
         Entry entry = entryRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
         
+        Entry sessionEntry = (Entry) session.getAttribute("sessionEditEntry_" + id);
+        if (sessionEntry != null) {
+            entry = sessionEntry;
+            session.removeAttribute("sessionEditEntry_" + id);
+        }
+
         if (entry.getDateTime() == null) {
             entry.setDateTime(LocalDateTime.now());
         }
         
         model.addAttribute("entry", entry);
-        model.addAttribute("categories", categoryRepository.findAll());
+        model.addAttribute("categories", categoryRepository.findByType(entry.getType()));
         model.addAttribute("accounts", accountRepository.findAll());
-        model.addAttribute("type", type);
+        model.addAttribute("type", entry.getType());
 
-        String referer = request.getHeader("referer");
-        model.addAttribute("returnUrl", referer);
+        model.addAttribute("currentUrl", "/editentry/" + id);
+
+        //String referer = request.getHeader("referer");
+        //model.addAttribute("returnUrl", referer);
 
         return "editentry";
     }
@@ -111,7 +123,7 @@ public class EntryController {
     @PostMapping("/editentry/{id}")
     public String saveEditedEntry(@PathVariable("id") Long id,
                                   @ModelAttribute Entry entryFromForm,
-                                  @RequestParam(value = "returnUrl", required = false) String returnUrl) {
+                                  HttpSession session) {
         Entry existingEntry = entryRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
 
@@ -125,44 +137,59 @@ public class EntryController {
 
         entryRepository.save(existingEntry);
 
-        // if (type != null) {
-        //     return "redirect:/entries?type=" + type;
-        // }
-
-        if (returnUrl != null && !returnUrl.isEmpty()) {
-            return "redirect:" + returnUrl;
-        }
-
-        return "redirect:/entries";
+        return "redirect:/entries?type=" + existingEntry.getType();
     }
 
     @GetMapping("/addentry")
     public String addEntry(@RequestParam(value = "type", required = false) EntryType type,
-                           Model model) {
-        Entry entry = new Entry();
+                           Model model,
+                           HttpSession session) {
+        String sessionKey = type != null ? "sessionNewEntry_" + type.name() : "sessionNewEntry";
 
-        if (type != null) {
-            entry.setType(type);
+        Entry entry = (Entry) session.getAttribute(sessionKey);
+
+        if (entry == null) {
+            entry = new Entry();
+            entry.setDateTime(LocalDateTime.now());
+            if (type != null) entry.setType(type);
+        } else {
+            session.removeAttribute(sessionKey);
         }
 
-        entry.setDateTime(LocalDateTime.now());
-
         model.addAttribute("entry", entry);
-        model.addAttribute("categories", categoryRepository.findAll());
+        model.addAttribute("categories", type != null ? categoryRepository.findByType(type) : categoryRepository.findAll());
         model.addAttribute("accounts", accountRepository.findAll());
         model.addAttribute("type", type);
+
+        model.addAttribute("currentUrl", "/addentry" + (type != null ? "?type=" + type : ""));
 
         return "addentry";
     }
 
     @PostMapping("/addentry")
     public String saveNewEntry(@ModelAttribute Entry entry,
-                               @RequestParam(value = "type", required = false) EntryType type) {
+                               @RequestParam(value = "type", required = false) EntryType type,
+                               HttpSession session) {
         entryRepository.save(entry);
+        String sessionKey = type != null ? "sessionNewEntry_" + type.name() : "sessionNewEntry";
+        session.removeAttribute(sessionKey);
         if (type != null) {
             return "redirect:/entries?type=" + type;
         }
         return "redirect:/entries";
+    }
+
+    public String saveNewEntrySession(@ModelAttribute Entry entry,
+                                      @RequestParam("returnUrl") String returnUrl,
+                                      HttpSession session) {
+
+        String sessionKey = entry.getType() != null
+                ? "sessionNewEntry_" + entry.getType().name()
+                : "sessionNewEntry";
+
+        session.setAttribute(sessionKey, entry); // FIX: сохраняем заполненную форму
+
+        return "redirect:" + returnUrl; // FIX: возвращаемся назад на addentry
     }
 
 }

@@ -41,7 +41,7 @@
         <!-- All entries -->
         <span th:case="null" class="alert alert-primary d-flex justify-content-between align-items-center">
             <span>Total: <span th:text="${total}"></span></span>
-            <a th:href="@{/addentry}" class="btn btn-info btn-sm">Add new entry</a>
+            <!-- <a th:href="@{/addentry}" class="btn btn-info btn-sm">Add new entry</a> --> <!-- DELETED for the more clean architecture and to avoid category choosing problem-->
         </span>
         
         <!-- Incomes -->

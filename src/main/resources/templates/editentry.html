@@ -66,6 +66,12 @@
                                     th:selected="${cat.category_id == entry.category?.category_id}">
                             </option>
                         </select>
+
+                        <a class="btn btn-outline-primary" 
+                        th:href="@{/addcategory(returnUrl=${currentUrl}, entryType=${type})}">
+                            Add new
+                        </a>
+
                     </div>
 
                     <!-- Account -->
