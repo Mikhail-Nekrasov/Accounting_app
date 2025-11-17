@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +15,9 @@ import org.springframework.web.bind.annotation.*;
 import fi.haagahelia.accounting.model.Account;
 import fi.haagahelia.accounting.model.Entry;
 import fi.haagahelia.accounting.model.EntryType;
+import fi.haagahelia.accounting.model.User;
 import fi.haagahelia.accounting.repository.AccountRepository;
+import fi.haagahelia.accounting.repository.UserRepository;
 
 @Controller
 public class AccountController {
@@ -21,9 +25,23 @@ public class AccountController {
     @Autowired
     private AccountRepository accountRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @GetMapping("/accounts")
-    public String accounts(@RequestParam(value = "type", required = false) String type, Model model) {
-        List<Account> accounts = accountRepository.findAll();
+    public String accounts(@RequestParam(value = "type", required = false) String type,
+                           Model model,
+                           Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new UsernameNotFoundException("User not found");
+        }
+
+    
+
+        List<Account> accounts = accountRepository.findByUser(currentUser);
 
         Map<Long, BigDecimal> accountSpent = new HashMap<>();
 
@@ -55,13 +73,32 @@ public class AccountController {
     }
 
     @GetMapping("/addaccount")
-    public String showAddAccountForm(Model model) {
-        model.addAttribute("account", new Account());
+    public String showAddAccountForm(Model model, Authentication auth) {
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+
+        Account account = new Account();
+        account.setUser(currentUser); 
+
+        model.addAttribute("account", account);
         return "addaccount";
     }
 
     @PostMapping("/addaccount")
-    public String saveAccount(@ModelAttribute Account account) {
+    public String saveAccount(@ModelAttribute Account account, Authentication auth) {
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+
+        account.setUser(currentUser);
+
         if (account.getAmount() == null) { 
             account.setAmount(BigDecimal.ZERO);
         }
@@ -70,16 +107,29 @@ public class AccountController {
     }
 
     @GetMapping("/deleteaccount/{id}")
-    public String deleteAccount(@PathVariable("id") Long id) {
-        Account account = accountRepository.findById(id).orElse(null);
-        if (account != null) {
-            boolean hasEntries = account.getEntries() != null && !account.getEntries().isEmpty();
-            boolean hasTransfers = !account.getFromTransfers().isEmpty() || !account.getToTransfers().isEmpty();
+    public String deleteAccount(@PathVariable("id") Long id, Authentication auth) {
+        User currentUser = userRepository.findByUsername(auth.getName());
 
-            if (!hasEntries && !hasTransfers) {
-                accountRepository.deleteById(id);
-            }
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
         }
+
+
+        Account account = accountRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid account Id:" + id));
+
+        if (!account.getUser().equals(currentUser)) {
+            throw new IllegalArgumentException("You cannot delete another user's account");
+        }
+
+        boolean hasEntries = account.getEntries() != null && !account.getEntries().isEmpty();
+        boolean hasTransfers = (account.getFromTransfers() != null && !account.getFromTransfers().isEmpty()) ||
+                               (account.getToTransfers() != null && !account.getToTransfers().isEmpty());
+
+        if (!hasEntries && !hasTransfers) {
+            accountRepository.deleteById(id);
+        }
+
         return "redirect:/accounts";
     }
 }

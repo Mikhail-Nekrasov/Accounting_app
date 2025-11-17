@@ -9,6 +9,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 
 @Entity
@@ -24,12 +26,17 @@ public class Category {
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, mappedBy = "category")
     private List<Entry> entries;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
     public Category() {
     }
 
-    public Category(String name, EntryType type) {
+    public Category(String name, EntryType type, User user) {
         this.name = name;
         this.type = type;
+        this.user = user;
     }
 
     public Long getCategory_id() {
@@ -58,6 +65,18 @@ public class Category {
 
     public void setType(EntryType type) {
         this.type = type;
+    }
+
+    public User getUser() {
+        return this.user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public boolean isGlobal() {
+        return this.user == null;
     }
 
     @Override

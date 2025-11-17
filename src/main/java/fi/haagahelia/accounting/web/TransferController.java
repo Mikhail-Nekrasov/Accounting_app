@@ -2,9 +2,13 @@ package fi.haagahelia.accounting.web;
 
 import fi.haagahelia.accounting.model.Account;
 import fi.haagahelia.accounting.model.Transfer;
+import fi.haagahelia.accounting.model.User;
 import fi.haagahelia.accounting.repository.AccountRepository;
 import fi.haagahelia.accounting.repository.TransferRepository;
+import fi.haagahelia.accounting.repository.UserRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -26,16 +30,28 @@ public class TransferController {
     @Autowired
     private TransferRepository transferRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @GetMapping("/transfer/{toId}")
-    public String showTransferForm(@PathVariable Long toId, Model model,
+    public String showTransferForm(@PathVariable Long toId, 
+                                   Model model,
+                                   Authentication auth,
                                    @RequestParam(value = "error", required = false) String error) {
 
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
         Account toAccount = accountRepository.findById(toId).orElse(null);
-        if (toAccount == null) {
+
+        if (toAccount == null || !toAccount.getUser().equals(currentUser)) {
             return "redirect:/accounts";
         }
 
-        List<Account> accounts = accountRepository.findAll();
+        List<Account> accounts = accountRepository.findByUser(currentUser);
 
         Map<Long, BigDecimal> balances = new HashMap<>();
         for (Account acc : accounts) {
@@ -54,12 +70,19 @@ public class TransferController {
     public String executeTransfer(@RequestParam Long fromId,
                                   @RequestParam Long toId,
                                   @RequestParam BigDecimal amount,
-                                  @RequestParam(required = false) String description) {
+                                  @RequestParam(required = false) String description,
+                                  Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+        
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
 
         Account from = accountRepository.findById(fromId).orElse(null);
         Account to = accountRepository.findById(toId).orElse(null);
 
-        if (from == null || to == null) {
+        if (from == null || to == null || !from.getUser().equals(currentUser) || !to.getUser().equals(currentUser)) {
             return "redirect:/accounts";
         }
 
@@ -91,11 +114,22 @@ public class TransferController {
     }
 
     @GetMapping("/transfers")
-    public String listTransfers(Model model) {
+    public String listTransfers(Model model, Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+        
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+        
+        List<Account> userAccounts = accountRepository.findByUser(currentUser);
+
         List<Transfer> transfers = transferRepository.findAll()
             .stream()
+            .filter(t -> userAccounts.contains(t.getFromAccount()) || userAccounts.contains(t.getToAccount()))
             .sorted(Comparator.comparing(Transfer::getDateTime).reversed())
             .toList();
+
         model.addAttribute("transfers", transfers);
         return "transfers";
     }

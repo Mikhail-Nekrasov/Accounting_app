@@ -33,11 +33,15 @@ public class Entry {
     @JoinColumn(name = "account_id")
     private Account account;
 
-    public Entry() {
-    }
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+    
+
+    public Entry() {}
 
     public Entry(String title, EntryType type, BigDecimal amount, LocalDateTime dateTime, String description,
-            Category category, Account account) {
+            Category category, Account account, User user) {
         this.title = title;
         this.type = type;
         this.amount = amount;
@@ -45,6 +49,7 @@ public class Entry {
         this.description = description;
         this.category = category;
         this.account = account;
+        this.user = user;
     }
 
     public Long getId() {
@@ -116,5 +121,13 @@ public class Entry {
 
     public void setAccount(Account account) {
         this.account = account;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }

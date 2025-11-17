@@ -9,6 +9,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,9 +23,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import fi.haagahelia.accounting.model.Account;
 import fi.haagahelia.accounting.model.Entry;
 import fi.haagahelia.accounting.model.EntryType;
+import fi.haagahelia.accounting.model.User;
 import fi.haagahelia.accounting.repository.AccountRepository;
 import fi.haagahelia.accounting.repository.CategoryRepository;
 import fi.haagahelia.accounting.repository.EntryRepository;
+import fi.haagahelia.accounting.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,12 +50,22 @@ public class EntryController {
     @Autowired
     public AccountRepository accountRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @GetMapping("/entries")
     public String getEntries(
             @RequestParam(value = "type", required = false) EntryType type,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "5") int size,
-            Model model) {
+            Model model,
+            Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+        
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }  
 
         // Sorting by date
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "dateTime"));
@@ -58,9 +73,9 @@ public class EntryController {
         Page<Entry> entryPage;
 
         if (type == null) {
-            entryPage = entryRepository.findAll(pageable);
+            entryPage = entryRepository.findByUser(currentUser, pageable);
         } else {
-            entryPage = entryRepository.findByType(type, pageable);
+            entryPage = entryRepository.findByUserAndType(currentUser, type, pageable);
         }
 
         List<Entry> entries = entryPage.getContent();
@@ -68,7 +83,7 @@ public class EntryController {
         // Calculating Total
         BigDecimal total;
         if (type == null) {
-            List<Entry> allEntries = entryRepository.findAll();
+            List<Entry> allEntries = entryRepository.findByUser(currentUser);
             BigDecimal incomeSum = allEntries.stream()
                     .filter(e -> e.getType() == EntryType.INCOME)
                     .map(Entry::getAmount)
@@ -79,7 +94,7 @@ public class EntryController {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             total = incomeSum.subtract(expenseSum);
         } else {
-            List<Entry> allEntriesByType = entryRepository.findByType(type);
+            List<Entry> allEntriesByType = entryRepository.findByUserAndType(currentUser, type);
             total = allEntriesByType.stream()
                     .map(Entry::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -101,10 +116,18 @@ public class EntryController {
         return "entries";
     }
     
+    @PreAuthorize("@entrySecurity.isOwner(#id, authentication)")
     @RequestMapping("/deleteentry/{id}")
     public String deleteEntry(@PathVariable("id") Long id,
-                            @RequestParam(value = "type", required = false) EntryType type) {
+                              @RequestParam(value = "type", required = false) EntryType type,
+                              Authentication auth) {
 
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+        
         Entry entry = entryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
 
@@ -130,11 +153,19 @@ public class EntryController {
         return "redirect:/entries";
     }
 
+    @PreAuthorize("@entrySecurity.isOwner(#id, authentication)")
     @GetMapping("/editentry/{id}")
     public String editEntry(@PathVariable("id") Long id,
                             Model model,
-                            //HttpServletRequest request,
+                            Authentication auth,
                             HttpSession session) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+        
         Entry entry = entryRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
         
         Entry sessionEntry = (Entry) session.getAttribute("sessionEditEntry_" + id);
@@ -149,7 +180,7 @@ public class EntryController {
         
         model.addAttribute("entry", entry);
         model.addAttribute("categories", categoryRepository.findByType(entry.getType()));
-        model.addAttribute("accounts", accountRepository.findAll());
+        model.addAttribute("accounts", accountRepository.findByUser(currentUser));
         model.addAttribute("type", entry.getType());
 
         model.addAttribute("currentUrl", "/editentry/" + id);
@@ -160,12 +191,23 @@ public class EntryController {
         return "editentry";
     }
 
+    @PreAuthorize("@entrySecurity.isOwner(#id, authentication)")
     @PostMapping("/editentry/{id}")
     public String saveEditedEntry(@PathVariable("id") Long id,
                                   @ModelAttribute Entry entryFromForm,
+                                  Authentication auth,
                                   HttpSession session) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+                
         Entry existingEntry = entryRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
+
+
 
         // Added for new logic (amount is the Account property)    
         Account account = existingEntry.getAccount();
@@ -184,6 +226,7 @@ public class EntryController {
         }
 
         account.setAmount(currentAmount);
+        accountRepository.save(account);
 
         existingEntry.setTitle(entryFromForm.getTitle());
         existingEntry.setAmount(entryFromForm.getAmount());
@@ -201,7 +244,15 @@ public class EntryController {
     @GetMapping("/addentry")
     public String addEntry(@RequestParam(value = "type", required = false) EntryType type,
                            Model model,
-                           HttpSession session) {
+                           HttpSession session,
+                           Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
         String sessionKey = type != null ? "sessionNewEntry_" + type.name() : "sessionNewEntry";
 
         Entry entry = (Entry) session.getAttribute(sessionKey);
@@ -216,7 +267,7 @@ public class EntryController {
 
         model.addAttribute("entry", entry);
         model.addAttribute("categories", type != null ? categoryRepository.findByType(type) : categoryRepository.findAll());
-        model.addAttribute("accounts", accountRepository.findAll());
+        model.addAttribute("accounts", accountRepository.findByUser(currentUser));
         model.addAttribute("type", type);
 
         model.addAttribute("currentUrl", "/addentry" + (type != null ? "?type=" + type : ""));
@@ -227,8 +278,17 @@ public class EntryController {
     @PostMapping("/addentry")
     public String saveNewEntry(@ModelAttribute Entry entry,
                                @RequestParam(value = "type", required = false) EntryType type,
+                               Authentication auth,
                                HttpSession session) {
         
+        User currentUser = userRepository.findByUsername(auth.getName());
+        
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+        
+        entry.setUser(currentUser);
+
         // Added for new logic (amount is the Account property)  
         Account account = entry.getAccount();
         BigDecimal currentAmount = account.getAmount() != null ? account.getAmount() : BigDecimal.ZERO;
@@ -241,8 +301,10 @@ public class EntryController {
 
         accountRepository.save(account);
         entryRepository.save(entry);
+
         String sessionKey = type != null ? "sessionNewEntry_" + type.name() : "sessionNewEntry";
         session.removeAttribute(sessionKey);
+        
         if (type != null) {
             return "redirect:/entries?type=" + type;
         }

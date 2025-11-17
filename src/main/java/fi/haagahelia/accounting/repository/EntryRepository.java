@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import fi.haagahelia.accounting.model.Entry;
 import fi.haagahelia.accounting.model.EntryType;
+import fi.haagahelia.accounting.model.User;
 
 import java.time.LocalDateTime;
 
@@ -22,7 +23,11 @@ public interface EntryRepository extends JpaRepository<Entry, Long> {
     List<Entry> findByDateTime(LocalDateTime dateTime);
 
     List<Entry> findByType(EntryType type);
+    List<Entry> findByUser(User user);
     List<Entry> findAll();
+    Page<Entry> findByUser(User currentUser, Pageable pageable);
+    Page<Entry> findByUserAndType(User currentUser, EntryType type, Pageable pageable);
+    List<Entry> findByUserAndType(User currentUser, EntryType type);
 
     //List<Entry> findByType(EntryType type, Sort sort);
 

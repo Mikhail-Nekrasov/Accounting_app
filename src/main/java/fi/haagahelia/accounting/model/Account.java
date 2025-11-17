@@ -9,6 +9,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 
 @Entity
@@ -29,14 +31,19 @@ public class Account {
     @OneToMany(mappedBy = "toAccount")
     private List<Transfer> toTransfers = new ArrayList<>();
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
 
     public Account() {
     }
 
-    public Account(String name, BigDecimal amount, String description) {
+    public Account(String name, BigDecimal amount, String description, User user) {
         this.name = name;
         this.amount = amount;
         this.description = description;
+        this.user = user;
     }
 
     public Long getAccount_id() {
@@ -89,6 +96,14 @@ public class Account {
 
     public void setToTransfers(List<Transfer> toTransfers) {
         this.toTransfers = toTransfers;
+    }
+
+    public User getUser() {
+        return this.user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     @Override

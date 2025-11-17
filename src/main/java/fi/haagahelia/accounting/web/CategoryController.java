@@ -3,6 +3,7 @@ package fi.haagahelia.accounting.web;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import fi.haagahelia.accounting.model.Category;
 import fi.haagahelia.accounting.model.Entry;
 import fi.haagahelia.accounting.model.EntryType;
+import fi.haagahelia.accounting.model.User;
 import fi.haagahelia.accounting.repository.CategoryRepository;
+import fi.haagahelia.accounting.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
@@ -25,13 +28,34 @@ public class CategoryController {
     @Autowired 
     private CategoryRepository categoryRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @GetMapping("/categories")
     public String getCategories(@RequestParam(value = "type", required = false) EntryType type, 
                                 HttpServletRequest request,
-                                Model model) {
+                                Model model,
+                                Authentication auth) {
 
-        List<Category> categories = (type != null) ? categoryRepository.findByType(type) 
-                                                : categoryRepository.findAll();
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+
+        List<Category> categories;
+        if (type != null) {
+            categories = categoryRepository.findByTypeAndUser(type, currentUser)
+                .stream()
+                .filter(c -> c.isGlobal() || c.getUser().equals(currentUser))
+                .toList();
+        } else {
+            categories = categoryRepository.findByUser(currentUser)
+                .stream()
+                .filter(c -> c.isGlobal() || c.getUser().equals(currentUser))
+                .toList();
+        }
 
         String currentUrl = request.getRequestURI() + 
             (request.getQueryString() != null ? "?" + request.getQueryString() : "");
@@ -46,11 +70,20 @@ public class CategoryController {
     @GetMapping("/addcategory")
     public String showAddCategoryForm(@RequestParam(required = false) String returnUrl,
                                       @RequestParam(value = "entryType", required = false) EntryType type,
-                                      Model model) {
+                                      Model model,
+                                      Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
         Category category = new Category();
         if (type != null) {
             category.setType(type);
         }
+        category.setUser(currentUser);
         model.addAttribute("category", category);
         model.addAttribute("returnUrl", returnUrl);
         return "addcategory";
@@ -61,28 +94,54 @@ public class CategoryController {
                                @RequestParam String returnUrl,
                                HttpSession session,
                                @RequestParam(value = "entryId", required = false) Long entryId,
-                               @RequestParam(value = "entryType", required = false) EntryType entryType) {
+                               @RequestParam(value = "entryType", required = false) EntryType entryType,
+                               Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+    
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        
+        category.setUser(currentUser);
         categoryRepository.save(category);
 
         if (entryId != null) {
   
-        Object sessionEntry = session.getAttribute("sessionEditEntry_" + entryId);
-        if (sessionEntry != null) {
-                session.setAttribute("sessionEditEntry_" + entryId, sessionEntry);
-            }
-        } else if (entryType != null) {
- 
-            Object sessionEntry = session.getAttribute("sessionNewEntry_" + entryType.name());
+            Object sessionEntry = session.getAttribute("sessionEditEntry_" + entryId);
             if (sessionEntry != null) {
-                session.setAttribute("sessionNewEntry_" + entryType.name(), sessionEntry);
+                    session.setAttribute("sessionEditEntry_" + entryId, sessionEntry);
+                }
+            } else if (entryType != null) {
+    
+                Object sessionEntry = session.getAttribute("sessionNewEntry_" + entryType.name());
+                if (sessionEntry != null) {
+                    session.setAttribute("sessionNewEntry_" + entryType.name(), sessionEntry);
+                }
             }
+            return "redirect:" + returnUrl;
         }
-        return "redirect:" + returnUrl;
-    }
 
     @GetMapping("/deletecategory/{id}")
     public String deleteCategory(@PathVariable("id") Long id,
-                                @RequestParam(value = "type", required = false) EntryType type) {
+                                @RequestParam(value = "type", required = false) EntryType type,
+                                Authentication auth) {
+
+        User currentUser = userRepository.findByUsername(auth.getName());
+        
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid category Id:" + id));
+
+        if (!category.isGlobal() && !category.getUser().equals(currentUser)) {
+            throw new IllegalArgumentException("You cannot delete another user's category");
+        }
+
         categoryRepository.deleteById(id);
 
         if (type != null) {
@@ -97,7 +156,5 @@ public class CategoryController {
         public void saveEntrySession(@ModelAttribute Entry entry, HttpSession session) {
             session.setAttribute("currentEntryData", entry);
     }
-
-
 
 }
