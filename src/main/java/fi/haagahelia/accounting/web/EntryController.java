@@ -52,7 +52,7 @@ public class EntryController {
             @RequestParam(value = "size", defaultValue = "5") int size,
             Model model) {
 
-        // Сортировка по дате (сначала новые)
+        // Sorting by date
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "dateTime"));
 
         Page<Entry> entryPage;
@@ -63,7 +63,7 @@ public class EntryController {
             entryPage = entryRepository.findByType(type, pageable);
         }
 
-        List<Entry> entries = entryPage.getContent(); // только текущая страница
+        List<Entry> entries = entryPage.getContent();
 
         // Calculating Total
         BigDecimal total;
@@ -103,8 +103,26 @@ public class EntryController {
     
     @RequestMapping("/deleteentry/{id}")
     public String deleteEntry(@PathVariable("id") Long id,
-                              @RequestParam(value = "type", required = false) EntryType type) {
-        entryRepository.deleteById(id);
+                            @RequestParam(value = "type", required = false) EntryType type) {
+
+        Entry entry = entryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
+
+        // Added for new logic (amount is the Account property)          
+        Account account = entry.getAccount();
+        BigDecimal currentAmount = account.getAmount() != null ? account.getAmount() : BigDecimal.ZERO;
+
+        // If we delete an Expense, Account's amount should increase and vice versa
+        if (entry.getType() == EntryType.EXPENSE) {
+            currentAmount = currentAmount.add(entry.getAmount());
+        } else if (entry.getType() == EntryType.INCOME) {
+            currentAmount = currentAmount.subtract(entry.getAmount());
+        }
+
+        account.setAmount(currentAmount);
+        accountRepository.save(account);
+
+        entryRepository.delete(entry);
 
         if (type != null) {
             return "redirect:/entries?type=" + type;
@@ -149,7 +167,7 @@ public class EntryController {
         Entry existingEntry = entryRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
 
-        // Added for new entity Transfer    
+        // Added for new logic (amount is the Account property)    
         Account account = existingEntry.getAccount();
         BigDecimal currentAmount = account.getAmount() != null ? account.getAmount() : BigDecimal.ZERO;
 
@@ -211,7 +229,7 @@ public class EntryController {
                                @RequestParam(value = "type", required = false) EntryType type,
                                HttpSession session) {
         
-        // Added for new entity Transfer
+        // Added for new logic (amount is the Account property)  
         Account account = entry.getAccount();
         BigDecimal currentAmount = account.getAmount() != null ? account.getAmount() : BigDecimal.ZERO;
 
