@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Transfers</title>
+    <link type="text/css" rel="stylesheet" href="/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" />
+</head>
+<body class="bg-light">
+
+<div class="container my-4">
+    <div class="card shadow-sm rounded-3">
+        <div class="card-body">
+            <h3 class="card-title mb-4">Transfers</h3>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="t : ${transfers}">
+                        <td th:text="${t.fromAccount.name}"></td>
+                        <td th:text="${t.toAccount.name}"></td>
+                        <td th:text="${t.amount}"></td>
+                        <td th:text="${#temporals.format(t.dateTime, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${t.description}"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <a th:href="@{/accounts}" class="btn btn-secondary mt-3">Back to accounts</a>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -9,7 +9,7 @@
 <body>
 <div class="container py-4">
 
-    <!-- Заголовок + Add Category кнопка -->
+    <!-- Header + Add category -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 th:text="${type == null ? 'All categories' : type.name() + ' categories'}"></h2>
         <a th:href="@{/addcategory(returnUrl=${currentUrl}, entryType=${type})}" class="btn btn-primary">
@@ -30,7 +30,7 @@
             <td th:text="${category.name}"></td>
             <td th:text="${category.type}"></td>
             <td>
-                <!-- Delete доступен только для пустых категорий -->
+                <!-- Delete available only for empty categories -->
                 <a th:if="${category.entries == null or #lists.isEmpty(category.entries)}"
                    th:href="@{/deletecategory/{id}(id=${category.category_id}, type=${type})}"
                    class="btn btn-danger btn-sm"
@@ -42,7 +42,7 @@
         </tbody>
     </table>
 
-    <!-- Кнопка возврата на список записей того же типа -->
+    <!-- Back to the same type entries -->
     <div class="mt-3">
         <a th:if="${type != null}" th:href="@{/entries(type=${type})}" class="btn btn-secondary">Back to Entries</a>
         <a th:if="${type == null}" th:href="@{/entries}" class="btn btn-secondary">Back to Entries</a>

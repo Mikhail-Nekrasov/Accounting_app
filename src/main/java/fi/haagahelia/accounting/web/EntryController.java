@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import fi.haagahelia.accounting.model.Account;
 import fi.haagahelia.accounting.model.Entry;
 import fi.haagahelia.accounting.model.EntryType;
 import fi.haagahelia.accounting.repository.AccountRepository;
@@ -148,6 +149,24 @@ public class EntryController {
         Entry existingEntry = entryRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Invalid entry Id:" + id));
 
+        // Added for new entity Transfer    
+        Account account = existingEntry.getAccount();
+        BigDecimal currentAmount = account.getAmount() != null ? account.getAmount() : BigDecimal.ZERO;
+
+        if (existingEntry.getType() == EntryType.INCOME) {
+            currentAmount = currentAmount.subtract(existingEntry.getAmount());
+        } else if (existingEntry.getType() == EntryType.EXPENSE) {
+            currentAmount = currentAmount.add(existingEntry.getAmount());
+        }
+
+        if (entryFromForm.getType() == EntryType.INCOME) {
+            currentAmount = currentAmount.add(entryFromForm.getAmount());
+        } else if (entryFromForm.getType() == EntryType.EXPENSE) {
+            currentAmount = currentAmount.subtract(entryFromForm.getAmount());
+        }
+
+        account.setAmount(currentAmount);
+
         existingEntry.setTitle(entryFromForm.getTitle());
         existingEntry.setAmount(entryFromForm.getAmount());
         existingEntry.setType(entryFromForm.getType());
@@ -191,6 +210,18 @@ public class EntryController {
     public String saveNewEntry(@ModelAttribute Entry entry,
                                @RequestParam(value = "type", required = false) EntryType type,
                                HttpSession session) {
+        
+        // Added for new entity Transfer
+        Account account = entry.getAccount();
+        BigDecimal currentAmount = account.getAmount() != null ? account.getAmount() : BigDecimal.ZERO;
+
+        if (entry.getType() == EntryType.INCOME) {
+            account.setAmount(currentAmount.add(entry.getAmount()));
+        } else if (entry.getType() == EntryType.EXPENSE) {
+            account.setAmount(currentAmount.subtract(entry.getAmount()));
+        }
+
+        accountRepository.save(account);
         entryRepository.save(entry);
         String sessionKey = type != null ? "sessionNewEntry_" + type.name() : "sessionNewEntry";
         session.removeAttribute(sessionKey);
@@ -208,9 +239,9 @@ public class EntryController {
                 ? "sessionNewEntry_" + entry.getType().name()
                 : "sessionNewEntry";
 
-        session.setAttribute(sessionKey, entry); // FIX: сохраняем заполненную форму
+        session.setAttribute(sessionKey, entry);
 
-        return "redirect:" + returnUrl; // FIX: возвращаемся назад на addentry
+        return "redirect:" + returnUrl;
     }
 
 }

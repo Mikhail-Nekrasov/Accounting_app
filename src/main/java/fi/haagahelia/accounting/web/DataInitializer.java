@@ -76,9 +76,9 @@ public class DataInitializer implements CommandLineRunner{
         categoryRepository.save(otherIncomeCategory);
 
         // Accounts
-        Account cashAccount = new Account("Cash", "Physical cash on hand");
-        Account bankOPAccount = new Account("Bank OP", "Main bank account at OP");
-        Account bankSPankkiAccount = new Account("Bank S-Pankki", "Secondary bank account at S-Pankki");
+        Account cashAccount = new Account("Cash", BigDecimal.ZERO, "Physical cash on hand");
+        Account bankOPAccount = new Account("Bank OP", BigDecimal.ZERO, "Main bank account at OP");
+        Account bankSPankkiAccount = new Account("Bank S-Pankki", BigDecimal.ZERO, "Secondary bank account at S-Pankki");
 
         accountRepository.save(cashAccount);
         accountRepository.save(bankOPAccount);
@@ -134,13 +134,30 @@ public class DataInitializer implements CommandLineRunner{
                 giftsCategory,
                 bankSPankkiAccount);
 
-        entryRepository.save(entry1);
-        entryRepository.save(entry2);
-        entryRepository.save(entry3);
-        entryRepository.save(entry4);
-        entryRepository.save(entry5);
-        entryRepository.save(entry6);
-        entryRepository.save(entry7);
+        // Addition due to chanhing logic (Every Entry changes amount on the according Account)
+        Entry[] entries = {entry1, entry2, entry3, entry4, entry5, entry6, entry7};
+
+        for (Entry e : entries) {
+            Account acc = e.getAccount();
+            BigDecimal currentAmount = acc.getAmount() != null ? acc.getAmount() : BigDecimal.ZERO;
+
+            if (e.getType() == EntryType.INCOME) {
+                acc.setAmount(currentAmount.add(e.getAmount()));
+            } else if (e.getType() == EntryType.EXPENSE) {
+                acc.setAmount(currentAmount.subtract(e.getAmount()));
+            }
+
+            accountRepository.save(acc);
+            entryRepository.save(e);
+        }
+
+        // entryRepository.save(entry1);
+        // entryRepository.save(entry2);
+        // entryRepository.save(entry3);
+        // entryRepository.save(entry4);
+        // entryRepository.save(entry5);
+        // entryRepository.save(entry6);
+        // entryRepository.save(entry7);
 
     }
 

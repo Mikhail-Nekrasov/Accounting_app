@@ -32,9 +32,11 @@
         </div>
 
         <div>
+            <a th:href="@{/accounts}" class="btn btn-outline-secondary ms-3">Accounts</a>
+      
             <a th:if="${type != null}" 
                 th:href="@{/categories(type=${type})}" 
-                class="btn btn-info ms-2">
+                class="btn btn-outline-secondary ms-2">
                 Categories
             </a>
         </div>
