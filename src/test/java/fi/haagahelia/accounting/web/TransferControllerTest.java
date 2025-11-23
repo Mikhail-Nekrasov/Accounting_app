@@ -1,0 +1,133 @@
+package fi.haagahelia.accounting.web;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.security.core.Authentication;
+import org.springframework.ui.Model;
+
+import fi.haagahelia.accounting.model.Account;
+import fi.haagahelia.accounting.model.Transfer;
+import fi.haagahelia.accounting.model.User;
+import fi.haagahelia.accounting.repository.AccountRepository;
+import fi.haagahelia.accounting.repository.TransferRepository;
+import fi.haagahelia.accounting.repository.UserRepository;
+
+public class TransferControllerTest {
+
+    @Mock
+    private AccountRepository accountRepository;
+
+    @Mock
+    private TransferRepository transferRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private Model model;
+
+    @Mock
+    private Authentication auth;
+
+    @InjectMocks
+    private TransferController transferController;
+
+    private User user;
+    private Account account1;
+    private Account account2;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        user = new User();
+        user.setUsername("testuser");
+
+        account1 = new Account("Account 1", new BigDecimal("1000"), "Description 1", user);
+        account2 = new Account("Account 2", new BigDecimal("500"), "Description 2", user);
+
+        when(auth.getName()).thenReturn(user.getUsername());
+        when(userRepository.findByUsername(user.getUsername())).thenReturn(user);
+    }
+
+    @Test
+    public void testShowTransferFormReturnsView() {
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(account2));
+        when(accountRepository.findByUser(user)).thenReturn(Arrays.asList(account1, account2));
+
+        String view = transferController.showTransferForm(2L, model, auth, null);
+
+        assertEquals("transfer", view);
+        verify(model).addAttribute("toAccount", account2);
+        verify(model).addAttribute(eq("accounts"), anyList());
+    }
+
+    @Test
+    public void testExecuteTransferSuccess() {
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account1));
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(account2));
+
+        String result = transferController.executeTransfer(1L, 2L, new BigDecimal("200"), "Payment", auth);
+
+        assertEquals("redirect:/transfers", result);
+        assertEquals(new BigDecimal("800"), account1.getAmount());
+        assertEquals(new BigDecimal("700"), account2.getAmount());
+
+        verify(accountRepository).save(account1);
+        verify(accountRepository).save(account2);
+        verify(transferRepository).save(any(Transfer.class));
+    }
+
+    @Test
+    public void testExecuteTransferNotEnoughMoney() {
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account1));
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(account2));
+
+        String result = transferController.executeTransfer(1L, 2L, new BigDecimal("2000"), "Payment", auth);
+
+        assertEquals("redirect:/transfer/2?error=nomoney", result);
+    }
+
+    @Test
+    public void testExecuteTransferInvalidAmount() {
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account1));
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(account2));
+
+        String result = transferController.executeTransfer(1L, 2L, new BigDecimal("-50"), "Payment", auth);
+
+        assertEquals("redirect:/transfer/2?error=invalid", result);
+    }
+
+    @Test
+    public void testExecuteTransferSameAccounts() {
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account1));
+
+        String result = transferController.executeTransfer(1L, 1L, new BigDecimal("100"), "Payment", auth);
+
+        assertEquals("redirect:/transfer/1?error=same", result);
+    }
+
+    @Test
+    public void testListTransfersReturnsCorrectView() {
+        Transfer t1 = new Transfer(account1, account2, new BigDecimal("100"), "Desc 1");
+        Transfer t2 = new Transfer(account2, account1, new BigDecimal("50"), "Desc 2");
+
+        when(accountRepository.findByUser(user)).thenReturn(Arrays.asList(account1, account2));
+        when(transferRepository.findAll()).thenReturn(Arrays.asList(t1, t2));
+
+        String view = transferController.listTransfers(model, auth);
+
+        assertEquals("transfers", view);
+        verify(model).addAttribute(eq("transfers"), anyList());
+    }
+}
