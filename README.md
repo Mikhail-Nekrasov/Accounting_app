@@ -6,14 +6,13 @@ Project topic is an application for personal accounting
 In this project implemented backend for the accounting application with Java Spring framework and Thymeleaf.
 
 Project address:
-[http://http://158.160.41.63/](http://http://158.160.41.63/) // need to be changed after deploy
-
+[https://git.heroku.com/hh-accounting-app.git](https://git.heroku.com/hh-accounting-app.git) 
 
 ## Compliance with requirements:
 - Wide scope (done, 7 entities, 7 controllers, ready-to-use application)
 - Project is turned in on-time (done, completed before 27.11.2025)
 - Contains some own things, which learned independently (done, paginator for Entries implemented, Lombok library for Role and User models used)
-- Using some spring boot functionalities that are not covered in the lectures (done, PostgreSQL used)
+- Contains multiple test cases (done)
 - Contains authentication (done, it's possible to register new users and login with theirs credentials)
 - Contains database connection to PostgreSQL or MariaDB (done, PostgreSQL used)
 - Well structured and commented source code (commented - done, the assessment of the structure remains at the discretion of the teacher)
