@@ -6,7 +6,7 @@ Project topic is an application for personal accounting
 In this project implemented backend for the accounting application with Java Spring framework and Thymeleaf.
 
 Project address:
-[https://git.heroku.com/hh-accounting-app.git](https://git.heroku.com/hh-accounting-app.git) 
+[https://hh-accounting-app-f603f80c0dd8.herokuapp.com/](https://hh-accounting-app-f603f80c0dd8.herokuapp.com/) 
 
 ## Compliance with requirements:
 - Wide scope (done, 7 entities, 7 controllers, ready-to-use application)
