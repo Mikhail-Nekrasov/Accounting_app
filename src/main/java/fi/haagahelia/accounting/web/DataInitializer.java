@@ -41,11 +41,15 @@ public class DataInitializer implements CommandLineRunner{
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
-        
     }
 
     @Override
     public void run(String... args) throws Exception {
+
+        // 🚫 Skip initialization if data already exists
+        if (userRepository.findByUsername("admin") != null) {
+            return;
+        }
 
         // Expense categories
         Category groceriesCategory = new Category("Groceries", EntryType.EXPENSE, null);
@@ -83,7 +87,7 @@ public class DataInitializer implements CommandLineRunner{
         Category interestCategory = new Category("Interest", EntryType.INCOME, null);
         Category giftsIncomeCategory = new Category("Gifts Income", EntryType.INCOME, null);
         Category rentIncomCategory = new Category("Rent Income", EntryType.INCOME, null);
-        Category otherIncomeCategory = new Category("Other Income", EntryType.INCOME, null);  
+        Category otherIncomeCategory = new Category("Other Income", EntryType.INCOME, null);
 
         categoryRepository.save(salaryCategory);
         categoryRepository.save(interestCategory);
@@ -91,18 +95,18 @@ public class DataInitializer implements CommandLineRunner{
         categoryRepository.save(rentIncomCategory);
         categoryRepository.save(otherIncomeCategory);
 
-        //User
+        // User
         Role role = roleRepository.findByName("ROLE_USER");
         if (role == null) {
-                role = new Role();
-                role.setName("ROLE_USER");
-                roleRepository.save(role);
+            role = new Role();
+            role.setName("ROLE_USER");
+            roleRepository.save(role);
         }
 
         User admin = userRepository.findByUsername("admin");
         if (admin == null) {
-        admin = new User("admin", passwordEncoder.encode("admin"), role);
-        userRepository.save(admin);
+            admin = new User("admin", passwordEncoder.encode("admin"), role);
+            userRepository.save(admin);
         }
 
         // Accounts
@@ -115,70 +119,69 @@ public class DataInitializer implements CommandLineRunner{
         accountRepository.save(bankSPankkiAccount);
 
         // Entries
-        Entry entry1 = new Entry("Grocery Shopping", EntryType.EXPENSE, 
-                new BigDecimal("75.50"), 
-                java.time.LocalDateTime.now().minusDays(2), 
-                "Weekly groceries at the K market", 
+        Entry entry1 = new Entry("Grocery Shopping", EntryType.EXPENSE,
+                new BigDecimal("75.50"),
+                java.time.LocalDateTime.now().minusDays(2),
+                "Weekly groceries at the K market",
                 groceriesCategory,
                 cashAccount,
                 admin);
-        
-        Entry entry2 = new Entry("Monthly Rent", EntryType.EXPENSE, 
-                new BigDecimal("950.00"), 
-                java.time.LocalDateTime.now().minusDays(5), 
-                "Rent for the apartment", 
+
+        Entry entry2 = new Entry("Monthly Rent", EntryType.EXPENSE,
+                new BigDecimal("950.00"),
+                java.time.LocalDateTime.now().minusDays(5),
+                "Rent for the apartment",
                 rentCategory,
                 bankOPAccount,
                 admin);
 
-        Entry entry3 = new Entry("Salary", EntryType.INCOME, 
-                new BigDecimal("2500.00"), 
-                java.time.LocalDateTime.now().minusDays(10), 
-                "Monthly salary for October", 
+        Entry entry3 = new Entry("Salary", EntryType.INCOME,
+                new BigDecimal("2500.00"),
+                java.time.LocalDateTime.now().minusDays(10),
+                "Monthly salary for October",
                 salaryCategory,
                 bankOPAccount,
                 admin);
 
-        Entry entry4 = new Entry("Publick transport ticket", EntryType.EXPENSE, 
-                new BigDecimal("64.60"), 
-                java.time.LocalDateTime.now().minusDays(15), 
-                "Season ticket, ABC zones, 30 days for a student", 
+        Entry entry4 = new Entry("Publick transport ticket", EntryType.EXPENSE,
+                new BigDecimal("64.60"),
+                java.time.LocalDateTime.now().minusDays(15),
+                "Season ticket, ABC zones, 30 days for a student",
                 transportCategory,
                 cashAccount,
                 admin);
 
-        Entry entry5 = new Entry("Furniture", EntryType.EXPENSE, 
-                new BigDecimal("470.00"), 
-                java.time.LocalDateTime.now().minusDays(20), 
-                "Table, chairs and cutlery for kitchen from IKEA", 
+        Entry entry5 = new Entry("Furniture", EntryType.EXPENSE,
+                new BigDecimal("470.00"),
+                java.time.LocalDateTime.now().minusDays(20),
+                "Table, chairs and cutlery for kitchen from IKEA",
                 homeCategory,
                 bankSPankkiAccount,
                 admin);
 
-        Entry entry6 = new Entry("Jacket", EntryType.EXPENSE, 
-                new BigDecimal("120.00"), 
-                java.time.LocalDateTime.now().minusDays(3), 
-                "Winter jacket from outdoor store", 
+        Entry entry6 = new Entry("Jacket", EntryType.EXPENSE,
+                new BigDecimal("120.00"),
+                java.time.LocalDateTime.now().minusDays(3),
+                "Winter jacket from outdoor store",
                 clothesCategory,
                 cashAccount,
                 admin);
 
-        Entry entry7 = new Entry("Birthday Gift", EntryType.EXPENSE, 
-                new BigDecimal("25.00"), 
-                java.time.LocalDateTime.now().minusDays(15), 
-                "Earphones as a birthday present", 
+        Entry entry7 = new Entry("Birthday Gift", EntryType.EXPENSE,
+                new BigDecimal("25.00"),
+                java.time.LocalDateTime.now().minusDays(15),
+                "Earphones as a birthday present",
                 giftsCategory,
                 bankSPankkiAccount,
                 admin);
 
-        // Addition due to chanhing logic (Every Entry changes amount on the according Account)
         Entry[] entries = {entry1, entry2, entry3, entry4, entry5, entry6, entry7};
 
         for (Entry e : entries) {
             Account acc = e.getAccount();
             BigDecimal currentAmount = acc.getAmount() != null ? acc.getAmount() : BigDecimal.ZERO;
 
-        if (e.getType() == EntryType.INCOME) {
+            if (e.getType() == EntryType.INCOME) {
                 acc.setAmount(currentAmount.add(e.getAmount()));
             } else if (e.getType() == EntryType.EXPENSE) {
                 acc.setAmount(currentAmount.subtract(e.getAmount()));
@@ -187,9 +190,5 @@ public class DataInitializer implements CommandLineRunner{
             accountRepository.save(acc);
             entryRepository.save(e);
         }
-
-        
-
     }
-
 }
